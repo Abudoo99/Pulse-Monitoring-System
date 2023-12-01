@@ -19,7 +19,7 @@ port = 4
 backlog = 1
 size = 1024
 
-PATH = "/home/pi/mu_code/WSAN/"
+PATH = "/home/pi/mu_code/WSAN/Pulse-Monitoring-System/assets/"
 
 # Sliding window data survival time (seconds)
 WINDOW_SIZE = 60
@@ -36,7 +36,6 @@ class BluetoothPairingThread(QThread):
     pairing_complete = pyqtSignal()
 
     def run(self):
-        ''' TODO: Real code
         # Pairing using bluetoothctl
         subprocess.call(['bluetoothctl', 'discoverable', 'yes'])
         subprocess.call(['bluetoothctl', 'pairable', 'yes'])
@@ -50,9 +49,6 @@ class BluetoothPairingThread(QThread):
         client_socket, client_info = server_socket.accept()
         print(f"Accepted connection from {client_info}")
         self.pairing_complete.emit()
-        '''
-        time.sleep(5) # DEMO
-        self.pairing_complete.emit()
 
 class UserInitializationThread(QThread):
     initialization_complete = pyqtSignal()
@@ -65,15 +61,14 @@ class UserInitializationThread(QThread):
 
         while cur_time - start_time < 20:
             cur_time = time.time()
-            # data = client_socket.recv(size)
-            # TODO: get the read data through Bluetooth
-            data = bus.read_i2c_block_data(adc_address, 0)[0]  # For DEMO
+            data = client_socket.recv(size)
             if data:
                 signal = int(data)
-                calcList = np.append(calcList, signal)
+                if signal <= 255:
+                    calcList = np.append(calcList, signal)
 
-        #threshold = ((np.max(calcList) - np.min(calcList)) * 0.7) + np.min(calcList)
-        threshold = np.max(calcList) * 0.9
+        threshold = ((np.max(calcList) - np.min(calcList)) * 0.9) + np.min(calcList)
+        #threshold = np.max(calcList) * 0.9
         print("min: ", np.min(calcList))
         print("max: ", np.max(calcList))
         print("Threshold: ", threshold)
@@ -107,25 +102,22 @@ class CalcBPM(QObject):
                 count = 0
                 prev_beat = 0 # For calculating RMSSD
                 while cur_time - start_time < self.TIME_INTERVAL:
-                    # TODO: get the read data through Bluetooth
-                    # data = client_socket.recv(size)
-                    data = bus.read_i2c_block_data(adc_address, 0)[0] # DEMO
+                    data = client_socket.recv(size)
                     if data:
                         signal = int(data)
-                        self.bpmList = np.append(self.bpmList, signal)
+                        if signal <= 255:
+                            self.bpmList = np.append(self.bpmList, signal)
 
-                        if signal > threshold: # Detect a hearbeat
-                            beat = time.time()
-                            if count > 0:
-                                self.time_interval_beat.append(round(abs((beat - prev_beat)*1000),2))
-                                # Maintain only last WINDOW_SIZE seconds data
-                                self.time_interval_beat = self.time_interval_beat[int(-1*WINDOW_SIZE/0.25):]
+                            if signal > threshold: # Detect a hearbeat
+                                beat = time.time()
+                                if count > 0:
+                                    self.time_interval_beat.append(round(abs((beat - prev_beat)*1000),2))
+                                    # Maintain only last WINDOW_SIZE seconds data
+                                    self.time_interval_beat = self.time_interval_beat[int(-1*WINDOW_SIZE/0.25):]
 
-                            prev_beat = beat
-                            count += 1
+                                prev_beat = beat
+                                count += 1
 
-
-                    time.sleep(0.15) # TODO: Remove
                     cur_time = time.time()
 
                 # Update BPM
@@ -213,12 +205,12 @@ class BPMPage(QWidget):
         self.plotWidget = pg.PlotWidget()
 
         # Hide axes and grid lines
-        '''
+
         self.plotWidget.getAxis('bottom').setStyle(showValues=False)
         self.plotWidget.getAxis('left').setStyle(showValues=False)
         self.plotWidget.getPlotItem().hideAxis('bottom')  # Hide X-axis completely
         self.plotWidget.getPlotItem().hideAxis('left')    # Hide Y-axis completely
-        '''
+
         self.graphLayout.addWidget(self.plotWidget)
 
         # Initialize pyqtgraph PlotDataItem
@@ -226,9 +218,8 @@ class BPMPage(QWidget):
         color = QColor(255, 0, 0)
         self.curve.setPen(color)
 
-        global WINDOW_SIZE
-        self.plotWidget.setXRange(0, (WINDOW_SIZE/0.25), padding=0)
-        self.plotWidget.setYRange(100, 150, padding=0)
+        self.plotWidget.setXRange(0, (15/0.25), padding=0)
+        #self.plotWidget.setYRange(0, 180, padding=0)
 
         # Other info
         self.impGrid = QGridLayout()
@@ -300,8 +291,7 @@ class BPMPage(QWidget):
 
     # Update the graph with new dialog data (last 60 seconds)
     def update_graph(self):
-        global WINDOW_SIZE
-        self.calcBPM.bpmList = self.calcBPM.bpmList[int(-1*(WINDOW_SIZE/0.25)):]
+        self.calcBPM.bpmList = self.calcBPM.bpmList[int(-1*(15/0.25)):]
         self.curve.setData(np.arange(0, self.calcBPM.bpmList.size, 1), self.calcBPM.bpmList)
         self.bpmValue.setText((str(self.calcBPM.bpm) if self.calcBPM.bpm >= 0 else "--"))
         self.ipmValue.setText((str(self.calcBPM.bpm) if self.calcBPM.bpm >= 0 else "--"))
@@ -332,7 +322,7 @@ class LandingPage(QWidget):
         super(LandingPage, self).__init__(parent)
         self.gridWidget = QGridLayout(self)
 
-        self.title = QLabel("Welcom to Pulse Monitoring System!", self)
+        self.title = QLabel("PULSE MONITORING SYSTEM", self)
         self.gridWidget.addWidget(self.title, 0, 0, alignment=Qt.AlignCenter)
         self.title.setStyleSheet("font-size: 24px; font-weight: bold; color: white; background: transparent;")
 
@@ -359,28 +349,20 @@ class LandingPage(QWidget):
         self.gridWidget.addWidget(self.age, 4, 0, alignment=Qt.AlignCenter)
         self.age.setStyleSheet("background: #373737; border-radius: 5px; outline: one; border: none; height: 40px; color: white; padding: 5px;")
 
+        self.pair_label = QLabel("Pairing Successful", self)
+        self.pair_label.setVisible(False)
+        self.pair_label.setFixedSize(610, 1200)
+        self.pair_label.setAlignment(Qt.AlignCenter)
+        self.pair_label.setStyleSheet("font-size: 15px; font-weight: bold; background: transparent; color: green")
+
         self.initBtn = QPushButton("Go")
         self.initBtn.clicked.connect(self.go_clicked)
         self.gridWidget.addWidget(self.initBtn, 5, 0, alignment=Qt.AlignCenter)
         self.initBtn.setCursor(QCursor(Qt.PointingHandCursor))
         self.initBtn.setStyleSheet("font-size: 18px; font-weight: bold; color: white; background: #6D5ACC; border: none; padding: 10px; border-radius: 15px; width: 200px;")
 
-        # Loading animation
-        self.message_label = QLabel("Waiting for Bluetooth connection...", self)
-        self.message_label.setVisible(False)
-        self.message_label.setFixedSize(610, 1200)
-        self.message_label.setAlignment(Qt.AlignCenter)
-        self.message_label.setStyleSheet("font-size: 18px; font-weight: bold; background: transparent; color: grey")
-
-        self.loading_label = QLabel(self)
-        self.loading_label.setFixedSize(610, 1285)
-        self.loading_label.setVisible(False)
-        self.loading_label.setStyleSheet("font-size: 18px; font-weight: bold; background: transparent;")
-        self.loading_angle = 0
-
         self.layout = QVBoxLayout(self)
-        self.layout.addWidget(self.message_label)
-        self.layout.addWidget(self.loading_label)
+        self.layout.addWidget(self.pair_label)
         self.layout.setAlignment(Qt.AlignCenter)
 
     def go_clicked(self):
@@ -399,7 +381,8 @@ class LandingPage(QWidget):
         self.bt_thread.start()
 
     def start_user_initialization(self):
-        self.initBtn.setText("Initializing...")
+        self.pair_label.setVisible(True)
+        self.initBtn.setText("Calibrating Sensor..")
         self.init_thread = UserInitializationThread()
         self.init_thread.initialization_complete.connect(self.show_bpm_page)
         self.init_thread.start()
@@ -427,7 +410,7 @@ class MainWindow(QMainWindow):
 
         # Set up the main window
         self.setCentralWidget(self.stackedWidget)
-        self.setWindowTitle("BPM Measurement")
+        self.setWindowTitle("Pulse Monitoring System")
         self.setGeometry(100, 100, 500, 700)
 
 
