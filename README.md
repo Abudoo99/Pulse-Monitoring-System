@@ -10,6 +10,13 @@ A wireless pulse monitoring system using two Raspberry Pi units. This system wil
 * Pulse sensor
 * Necessary cables and accessories
 
+### Structure
+* `sender.py`: Get sensor data and send to the receiver
+* `receiver.py`: Receive sensor data and show the GUI
+* `assets/*.png`: Images for GUI
+* `assets/target_bpm_data.json`: Target BPM for different age groups
+* `bluetooth/`: Test files for receiver and sender
+
 ### Softwares
 * Python
 
