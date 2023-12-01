@@ -1,21 +1,27 @@
-import smbus
-from time import sleep
+"""
+A simple Python script to send messages to a sever over Bluetooth
+using PyBluez (with Python 2).
+"""
 
-serverMACaddress = 'D8:3A:DD:3C:D9:91'
-port = 4
-data = 1
-s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-s.connect((serverMACaddress, port))
+import bluetooth
+import random
+import time
+import smbus
 
 bus = smbus.SMBus(1)
+
 ADC_ADDRESS = 0x4b
 
-try:
-    while True:
-        #Read sensor input from ADC
-        data = bus.read_i2c_block_data(ADC_ADDRESS, 0)
-        client_socket.send(data[0])
-        sleep(0.25)
+serverMACAddress = 'D8:3A:DD:3C:D9:91'
+port = 4
+s = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+s.connect((serverMACAddress, port))
 
-except KeyboardInterrupt:
-    pass
+while True:
+    data = bus.read_i2c_block_data(ADC_ADDRESS, 0)
+    #data = [random.randrange(0,255)]
+    print(data[0])
+    s.send(str(data[0]))
+
+    time.sleep(0.25)
+#sock.close()
